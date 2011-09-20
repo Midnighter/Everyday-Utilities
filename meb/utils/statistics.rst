@@ -1,0 +1,8 @@
+.. _statistics:
+
+=====================
+Statistical Functions
+=====================
+
+
+
