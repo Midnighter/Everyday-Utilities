@@ -19,8 +19,8 @@ Statistics Helpers
 
 
 import numpy
-
-from .mathfuncs import float_almost_equal
+import scipy
+import scipy.stats
 
 
 def frequency_distribution(observables, bins=30, binwidth=None):
@@ -133,4 +133,117 @@ def compute_zscore(observable, random_stats):
             return numpy.inf
     else:
         return (nominator / std)
+
+def dense_ranking(data, dtype="int32"):
+    """
+    Ranks the given data in increasing order with duplicates receiving the same
+    rank and ranking continuously, i.e.,
+
+        [0.5, 1.2, 3.4, 1.2, 1.2] -> [1, 2, 3, 2, 2].
+
+    Parameters
+    ----------
+    data: numpy.array
+        data to be ranked, should behave like a numpy.array
+    dtype: str (optional)
+        string desciribing the data type of the numpy.array storing the ranks
+
+    Returns
+    -------
+    numpy.array:
+        ranks of the data as explained above
+
+    Notes
+    -----
+    The given data should be one-dimensional. This can be achieved using
+    numpy.ravel and then reshaping the result as necessary.
+
+    If the data contains `nan` or other undesirable values, masked arrays may be
+    your solution.
+    """
+    # numpy.unique returns the unique values in sorted order
+    (unique, indices) = numpy.unique(data, return_inverse=True)
+    # use the returned indices over a range to construct ranked array
+    ranks = numpy.arange(1, unique.size + 1)[indices].astype(dtype)
+    return ranks
+
+def competition_ranking(data, dtype="int32"):
+    """
+    Ranks the given data in increasing order and resolving duplicates using the
+    lowest common rank and skipping as many ranks as there are duplicates, i.e.,
+
+        [0.5, 1.2, 3.4, 1.2, 1.2] -> [1, 2, 5, 2, 2].
+
+    Parameters
+    ----------
+    data: numpy.array
+        data to be ranked, should behave like a numpy.array
+    dtype: str (optional)
+        string desciribing the data type of the numpy.array storing the ranks
+
+    Returns
+    -------
+    numpy.array:
+        ranks of the data as explained above
+
+    Notes
+    -----
+    The given data should be one-dimensional. This can be achieved using
+    numpy.ravel and then reshaping the result as necessary.
+
+    If the data contains `nan` or other undesirable values, masked arrays may be
+    your solution.
+    """
+    ranks = numpy.zeros(data.size, dtype=dtype)
+    order = data.argsort()
+    ranks[order] = numpy.arange(1, data.size + 1)
+    # returns repeats and their count
+    repeats = scipy.stats.mstats.find_repeats(data)[0]
+    for r in repeats:
+        condition = data == r
+        # all repeats have the same minimal rank
+        # using the first element works iff sorting was stable
+#        ranks[condition] = ranks[condition][0]
+        ranks[condition] = ranks[condition].min()
+    return ranks
+
+def modified_competition_ranking(data, dtype="int32"):
+    """
+    Ranks the given data in increasing order and resolving duplicates using the
+    largest common rank and skipping as many ranks as there are duplicates, i.e.,
+
+        [0.5, 1.2, 3.4, 1.2, 1.2] -> [1, 4, 5, 4, 4].
+
+    Parameters
+    ----------
+    data: numpy.array
+        data to be ranked, should behave like a numpy.array
+    dtype: str (optional)
+        string desciribing the data type of the numpy.array storing the ranks
+
+    Returns
+    -------
+    numpy.array:
+        ranks of the data as explained above
+
+    Notes
+    -----
+    The given data should be one-dimensional. This can be achieved using
+    numpy.ravel and then reshaping the result as necessary.
+
+    If the data contains `nan` or other undesirable values, masked arrays may be
+    your solution.
+    """
+    ranks = numpy.zeros(data.size, dtype=dtype)
+    order = data.argsort()
+    ranks[order] = numpy.arange(1, data.size + 1)
+    # returns repeats and their count
+    repeats = scipy.stats.mstats.find_repeats(data)[0]
+    for r in repeats:
+        condition = data == r
+        # all repeats have the same minimal rank
+        # using the first element works iff sorting was stable
+#        ranks[condition] = ranks[condition][-1]
+        ranks[condition] = ranks[condition].max()
+    return ranks
 
