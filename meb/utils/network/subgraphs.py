@@ -141,6 +141,7 @@ def triadic_census(graph, m=None, count_disconnected=False):
                             not v in graph.succ[w]):
                         code = _tricode(graph, v, u, w)
                         census[tricode_to_name[code]] += 1
+                        record[tricode_to_name[code]].append((v, u, w))
 
     def _count_mapped_connected():
         for v in graph:
@@ -161,6 +162,7 @@ def triadic_census(graph, m=None, count_disconnected=False):
                             not v in graph.succ[w]):
                         code = _tricode(graph, v, u, w)
                         census[tricode_to_name[code]] += 1
+                        record[tricode_to_name[code]].append((v, u, w))
 
     def _count_disconnected():
         for v in graph:
@@ -186,6 +188,7 @@ def triadic_census(graph, m=None, count_disconnected=False):
                             not v in graph.succ[w]):
                         code = _tricode(graph, v, u, w)
                         census[tricode_to_name[code]] += 1
+                        record[tricode_to_name[code]].append((v, u, w))
 
     def _count_mapped_disconnected():
         for v in graph:
@@ -211,12 +214,14 @@ def triadic_census(graph, m=None, count_disconnected=False):
                             not v in graph.succ[w]):
                         code = _tricode(graph, v, u, w)
                         census[tricode_to_name[code]] += 1
+                        record[tricode_to_name[code]].append((v, u, w))
 
     if not graph.is_directed():
         raise nx.NetworkXError("not defined for undirected graphs")
 
     # initialze the census to zero
     census = dict((n, 0) for n in triad_names)
+    record = dict((n, list()) for n in triad_names)
     n = graph.order()
     if count_disconnected:
         if m:
@@ -237,7 +242,7 @@ def triadic_census(graph, m=None, count_disconnected=False):
     if count_disconnected:
         # null triads = total number of possible triads - all found triads
         census["003"] = ((n * (n - 1) * (n - 2)) / 6) - sum(census.itervalues())
-    return census
+    return (census, record)
 
 ################################################################################
 
