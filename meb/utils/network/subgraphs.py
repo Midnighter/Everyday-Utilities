@@ -81,7 +81,7 @@ tricodes = (1, 2, 2, 3, 2, 4, 6, 8, 2, 6, 5, 7, 3, 8, 7, 11, 2, 6, 4, 8, 5, 9,
 tricode_to_name = dict((i, triad_names[tricodes[i] - 1])\
         for i in range(len(tricodes))) # for Python 3.x compatibility
 
-def triadic_census(graph, m=None, count_disconnected=False):
+def triadic_census(graph, m=None, count_disconnected=False, record_triads=False):
     """
     Counts all directed triads (three-node subgraphs).
 
@@ -98,11 +98,17 @@ def triadic_census(graph, m=None, count_disconnected=False):
         A map between nodes in the graph graph and their indeces.
     count_disconnected: bool (optional)
         Determines whether the unconnected triads should be counted as well.
+    record_triads: bool (optional)
+        Determines whether node-triples making up one triad should be recorded
+        in a separate dictionary.
 
     Returns
     -------
-    census : dictionary
+    dict:
         Dictionary with triad names as keys and number of occurances as values.
+    dict (optional):
+        Dictionary with triad names as keys and lists with node triples as
+        values.
 
     Refrences
     ---------
@@ -141,7 +147,8 @@ def triadic_census(graph, m=None, count_disconnected=False):
                             not v in graph.succ[w]):
                         code = _tricode(graph, v, u, w)
                         census[tricode_to_name[code]] += 1
-                        record[tricode_to_name[code]].append((v, u, w))
+                        if record_triads:
+                            record[tricode_to_name[code]].append((v, u, w))
 
     def _count_mapped_connected():
         for v in graph:
@@ -162,7 +169,8 @@ def triadic_census(graph, m=None, count_disconnected=False):
                             not v in graph.succ[w]):
                         code = _tricode(graph, v, u, w)
                         census[tricode_to_name[code]] += 1
-                        record[tricode_to_name[code]].append((v, u, w))
+                        if record_triads:
+                            record[tricode_to_name[code]].append((v, u, w))
 
     def _count_disconnected():
         for v in graph:
@@ -188,7 +196,8 @@ def triadic_census(graph, m=None, count_disconnected=False):
                             not v in graph.succ[w]):
                         code = _tricode(graph, v, u, w)
                         census[tricode_to_name[code]] += 1
-                        record[tricode_to_name[code]].append((v, u, w))
+                        if record_triads:
+                            record[tricode_to_name[code]].append((v, u, w))
 
     def _count_mapped_disconnected():
         for v in graph:
@@ -214,14 +223,16 @@ def triadic_census(graph, m=None, count_disconnected=False):
                             not v in graph.succ[w]):
                         code = _tricode(graph, v, u, w)
                         census[tricode_to_name[code]] += 1
-                        record[tricode_to_name[code]].append((v, u, w))
+                        if record_triads:
+                            record[tricode_to_name[code]].append((v, u, w))
 
     if not graph.is_directed():
         raise nx.NetworkXError("not defined for undirected graphs")
 
     # initialze the census to zero
     census = dict((n, 0) for n in triad_names)
-    record = dict((n, list()) for n in triad_names)
+    if record_triads:
+        record = dict((n, list()) for n in triad_names)
     n = graph.order()
     if count_disconnected:
         if m:
@@ -236,19 +247,25 @@ def triadic_census(graph, m=None, count_disconnected=False):
         census.pop("003")
         census.pop("012")
         census.pop("102")
+        if record_triads:
+            record.pop("003")
+            record.pop("012")
+            record.pop("102")
 
     count()
 
     if count_disconnected:
         # null triads = total number of possible triads - all found triads
         census["003"] = ((n * (n - 1) * (n - 2)) / 6) - sum(census.itervalues())
-    return (census, record)
+    if record_triads:
+        return (census, record)
+    else:
+        return census
 
 ################################################################################
 
 if __name__ == "__main__":
     import timeit
-    import numpy
     G = nx.read_edgelist("random_graph.edgelist", create_using=nx.DiGraph(),
             nodetype=int)
     mapping = dict(itertools.izip(G.nodes_iter(), itertools.count()))
@@ -259,7 +276,7 @@ if __name__ == "__main__":
     t4 = timeit.Timer(stmt="triadic_census(G, m=mapping)",
             setup="from __main__ import triadic_census;from __main__ import G;"\
             "from __main__ import mapping")
-    t4 = timeit.Timer(stmt="triadic_census(G, m=mapping, count_disconnected=True)",
+    t5 = timeit.Timer(stmt="triadic_census(G, m=mapping, count_disconnected=True)",
             setup="from __main__ import triadic_census;from __main__ import G;"\
             "from __main__ import mapping")
     times2 = t2.repeat(repeat=30, number=5)
