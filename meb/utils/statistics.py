@@ -22,18 +22,58 @@ import numpy
 import scipy
 import scipy.stats
 
+from operator import itemgetter
 
-def frequency_distribution(observables, bins=30, binwidth=None):
+
+def probability_bincount(obs, drop=True):
+    """
+    Normalise the observed bincount from `obs` to sum up to unity.
+
+    Parameters
+    ----------
+    obs: iterable
+        An iterable of integer numerals.
+    drop: bool (optional)
+        Determines whether or not bins with zero events are dropped from the
+        resulting list.
+
+    Returns
+    -------
+    A frequency distribution that is normalised to unity.
+    """
+    if not obs:
+        return []
+    total = float(len(obs))
+    freq = numpy.bincount(obs)
+    points = [(k, val / total) for (k, val) in enumerate(freq) if val > 0]
+    return points
+
+def frequency_distribution(obs, num_bins=30, binwidth=None, limits=None,
+        weights=None, drop=True):
     """
     Takes a number of events and counts the frequency of these events falling into
-    either a fixed number of equi-distant bins over the observed range or bins of
+    either a fixed number of equi-distant bins over the given range or bins of
     fixed width over the range.
 
     Parameters
     ----------
-    observables : An iterable of numerals.
-    bins : The number of equi-distant bins used over the numeric range.
-    binwidth : The width of the bins.
+    obs: iterable
+        An aggregation of numerical observations.
+    num_bins: int (optional)
+        The number of equi-distant bins used over the numeric range.
+    binwidth: float (optional)
+        Desired width of the bins. This overrides `num_bins`.
+    limits: tuple (lower, upper) (optional)
+        The lower and upper values for the range of the distribution.
+        If no value is given, a range slightly larger then the range of the
+        values in `obs` is used. Specifically ``(a.min() - s, a.max() + s)``,
+            where ``s = (1/2)(a.max() - a.min()) / num_bins``.
+    weights: iterable (optional)
+        Weights for the data points in `obs`. The default is `None` weighting
+        all points equal.
+    drop: bool (optional)
+        Determines whether or not bins with zero events are dropped from the
+        resulting list.
 
     Returns
     -------
@@ -41,89 +81,137 @@ def frequency_distribution(observables, bins=30, binwidth=None):
     the frequency of an event is measured, and the second entry is the frequency
     itself.
     """
-    if not observables:
-        return []
-    minimum = min(observables)
-    maximum = max(observables)
-    if minimum < 0.0 and maximum > 0.0:
-        span = float(maximum + abs(minimum))
+    obs = numpy.asarray(obs)
+    obs = numpy.ravel(obs)
+    if obs.size == 0:
+        return list()
+    if limits is None:
+        mn = obs.min()
+        mx = obs.max()
     else:
-# difference is always positive when max and min have the same sign
-        span = float(maximum - minimum)
+        (mn, mx) = limits
     if binwidth:
-        bins = int(numpy.ceil(span / float(binwidth)))
-    if not binwidth:
-        binwidth = span / float(bins)
-    (counts, binning) = numpy.histogram(observables, bins=bins + 1,\
-            range=(minimum, maximum + binwidth))
-    data = list()
-    for k in xrange(len(counts)):
-        if counts[k] > 0:
-            data.append((binning[k] + binwidth / 2.0, counts[k]))
-    return data
+        binwidth = float(binwidth)
+        num_bins = numpy.floor((mx - mn) / binwidth)
+    else:
+        num_bins = int(num_bins)
+        binwidth = (mx - mn) / num_bins
+    offset = binwidth * 0.5
+    if limits is None:
+        limits = (mn - offset, mx + offset)
+    # extend the numeric range slightly beyond the data range
+    (freq, bins) = numpy.histogram(obs, bins=num_bins, range=limits,
+            weights=weights)
+    if drop:
+        points = [(bins[k] + offset, freq[k]) for k in range(freq.size)\
+                if freq[k] > 0]
+    else:
+        points = [(bins[k] + offset, freq[k]) for k in range(freq.size)]
+    return points
 
-def probability_distribution(observables, bins=30, binwidth=None):
+def probability_distribution(obs, num_bins=30, binwidth=None, limits=None,
+        weights=None, drop=True):
     """
-    Normalises the observed frequencies by the total number of elements in
-    ``observables``.
+    Normalises the observed frequencies in `obs` by the total number of elements in
+    `obs` making this a probability mass function.
 
     Parameters
     ----------
-    observables : An iterable of numerals.
-    bins : The number of equi-distant bins used over the numeric range.
-    binwidth : The width of the bins.
+    obs: iterable
+        An aggregation of numerical observations.
+    num_bins: int (optional)
+        The number of equi-distant bins used over the numeric range.
+    binwidth: float (optional)
+        Desired width of the bins. This overrides `num_bins`.
+    limits: tuple (lower, upper) (optional)
+        The lower and upper values for the range of the distribution.
+        If no value is given, a range slightly larger then the range of the
+        values in `obs` is used. Specifically ``(a.min() - s, a.max() + s)``,
+            where ``s = (1/2)(a.max() - a.min()) / num_bins``.
+    weights: iterable (optional)
+        Weights for the data points in `obs`. The default is `None` weighting
+        all points equal.
+    drop: bool (optional)
+        Determines whether or not bins with zero events are dropped from the
+        resulting list.
 
     Returns
     -------
-    A frequency distribution that is normalised to unity.
+    A frequency distribution whose sum is normalised to unity.
 
     Notes
     -----
     See also frequency_distribution_.
     """
-    if not observables:
-        return []
-    total = float(len(observables))
-    data = frequency_distribution(observables, bins, binwidth)
-    return [(pair[0], pair[1] / total) for pair in data]
+    points = frequency_distribution(obs, num_bins, binwidth, limits, weights, drop)
+    freq = itemgetter(1)
+    total = float(sum(freq(val) for val in points))
+    return [(pair[0], pair[1] / total) for pair in points]
 
-def probability_bincounts(observables):
+def adaptive_distribution(obs, binwidth, limits=None, factor=2.0, k_max=21, right_most=3):
     """
-    Normalises the observed frequencies by the total number of elements in
-    ``observables``.
+    An adaptive binning technique that overlays multiple histograms with
+    increasing bin widths.
 
+    References
+    ----------
+    [1] Liebovitch, L. S., A. T. Todorov, M. Zochowski, D. Scheurle, L. Colgin,
+        M. A. Wood, K. A. Ellenbogen, J. M. Herre, and R. C. Bernstein. 1999.
+        ``Nonlinear Properties of Cardiac Rhythm Abnormalities.''
+        Physical Review E 59 (3): 3312–3319.
+
+    """
+    obs = numpy.asarray(obs)
+    obs = numpy.ravel(obs)
+    if obs.size == 0:
+        return list()
+    if limits is None:
+        mn = obs.min()
+        mx = obs.max()
+    else:
+        (mn, mx) = limits
+    offset = binwidth * 0.5
+    if limits is None:
+        limits = (mn - offset, mx + offset)
+    num_bins = numpy.floor((mx - mn) / binwidth)
+    freq = numpy.histogram(obs, num_bins, range=limits)[0]
+    total = float(freq.sum())
+    print 0
+    print binwidth
+    print freq[0:right_most + 1]
+    results = list()
+    iteration = 1
+    while len(freq) > right_most and not (freq[1:right_most] == 0).any():
+        for (k, count) in enumerate(freq[1:]):
+            if count == 0 or k == k_max:
+                break
+            results.append(((k + 0.5) * binwidth + limits[0], count / (binwidth * total)))
+        binwidth *= factor
+        iteration += 1
+        # new loop
+        num_bins = numpy.floor((mx - mn) / binwidth)
+        freq = numpy.histogram(obs, num_bins, range=limits)[0]
+        total = float(freq.sum())
+        print iteration
+        print binwidth
+        print freq[0:right_most + 1]
+
+    return sorted(results)
+
+def compute_zscore(obs, random_stats):
+    """
     Parameters
     ----------
-    observables : An iterable of integer numerals.
-
-    Returns
-    -------
-    A frequency distribution that is normalised to unity.
-    """
-    if not observables:
-        return []
-    total = float(len(observables))
-    data = numpy.bincount(observables)
-    points = list()
-    for (i, value) in enumerate(data):
-        if value > 0:
-            points.append((i, value / total))
-    return points
-
-def compute_zscore(observable, random_stats):
-    """
-    Parameters
-    ----------
-    observables : numeral
+    obs: numeral
         original observation
     random_stats : iterable
         same observable in randomised versions
     """
-    if not random_stats:
+    if len(random_stats) == 0:
         return numpy.nan
     mean = numpy.mean(random_stats)
     std = numpy.std(random_stats)
-    nominator = observable - mean
+    nominator = obs- mean
     if nominator == 0.0:
         return nominator
     if std == 0.0:
