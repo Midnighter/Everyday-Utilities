@@ -86,6 +86,11 @@ def ThreadPool(object):
         """
         self.queue.put((perform, args, kw_args))
 
+    def join(self):
+        """
+        """
+        self.queue.join()
+
 
 class RemoteSetup(object):
     """

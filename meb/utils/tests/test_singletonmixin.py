@@ -18,29 +18,27 @@ Singleton Tests
 """
 
 
-import os
 import threading
 import time
 import unittest
-import nose.tools as nt
 
 from ..singletonmixin import Singleton
 from ..singletonmixin import SingletonException
-from ..singletonmixin import forgetAllSingletons
+from ..singletonmixin import forget_all_singletons
 
 
 class singletonmixin_Public_TestCase(unittest.TestCase):
     def testReturnsSameObject(self):
         """
-        Demonstrates normal use -- just call getInstance and it returns a singleton instance
+        Demonstrates normal use -- just call get_instance and it returns a singleton instance
         """
 
         class A(Singleton):
             def __init__(self):
                 super(A, self).__init__()
 
-        a1 = A.getInstance()
-        a2 = A.getInstance()
+        a1 = A.get_instance()
+        a2 = A.get_instance()
         self.assertEquals(id(a1), id(a2))
 
     def testInstantiateWithMultiArgConstructor(self):
@@ -56,8 +54,8 @@ class singletonmixin_Public_TestCase(unittest.TestCase):
                 self.arg1 = arg1
                 self.arg2 = arg2
 
-        b1 = B.getInstance('arg1 value', 'arg2 value')
-        b2 = B.getInstance()
+        b1 = B.get_instance('arg1 value', 'arg2 value')
+        b2 = B.get_instance()
         self.assertEquals(b1.arg1, 'arg1 value')
         self.assertEquals(b1.arg2, 'arg2 value')
         self.assertEquals(id(b1), id(b2))
@@ -70,8 +68,8 @@ class singletonmixin_Public_TestCase(unittest.TestCase):
                 super(B, self).__init__()
                 self.arg1 = arg1
 
-        b1 = B.getInstance('arg1 value')
-        b2 = B.getInstance()
+        b1 = B.get_instance('arg1 value')
+        b2 = B.get_instance()
         self.assertEquals(b1.arg1, 'arg1 value')
         self.assertEquals(id(b1), id(b2))
 
@@ -84,7 +82,7 @@ class singletonmixin_Public_TestCase(unittest.TestCase):
                 self.arg1 = arg1
                 self.arg2 = arg2
 
-        self.assertRaises(SingletonException, B.getInstance)
+        self.assertRaises(SingletonException, B.get_instance)
 
     def testPassTypeErrorIfAllArgsThere(self):
         """
@@ -98,12 +96,12 @@ class singletonmixin_Public_TestCase(unittest.TestCase):
                 self.arg2 = arg2
                 raise TypeError, 'some type error'
 
-        self.assertRaises(TypeError, B.getInstance, 1, 2)
+        self.assertRaises(TypeError, B.get_instance, 1, 2)
 
 #    def testTryToInstantiateWithoutGetInstance(self):
 #        """
 #        Demonstrates that singletons can ONLY be instantiated through
-#        getInstance, as long as they call Singleton.__init__ during construction.
+#        get_instance, as long as they call Singleton.__init__ during construction.
 #
 #        If this check is not required, you don't need to call Singleton.__init__().
 #        """
@@ -135,10 +133,10 @@ class singletonmixin_Public_TestCase(unittest.TestCase):
                 self.arg1 = arg1
                 self.arg2 = arg2
 
-        B.getInstance('arg1 value', 'arg2 value')
+        B.get_instance('arg1 value', 'arg2 value')
         self.assertRaises(SingletonException, B, 'arg1 value', 'arg2 value')
 
-    def test_forgetClassInstanceReferenceForTesting(self):
+    def test_forget_class_instance_reference_for_testing(self):
         class A(Singleton):
             def __init__(self):
                 super(A, self).__init__()
@@ -148,22 +146,22 @@ class singletonmixin_Public_TestCase(unittest.TestCase):
 
         # check that changing the class after forgetting the instance produces
         # an instance of the new class
-        a = A.getInstance()
+        a = A.get_instance()
         assert a.__class__.__name__ == 'A'
-        A._forgetClassInstanceReferenceForTesting()
-        b = B.getInstance()
+        A._forget_class_instance_reference_for_testing()
+        b = B.get_instance()
         assert b.__class__.__name__ == 'B'
 
         # check that invoking the 'forget' on a subclass still deletes the instance
-        B._forgetClassInstanceReferenceForTesting()
-        a = A.getInstance()
-        B._forgetClassInstanceReferenceForTesting()
-        b = B.getInstance()
+        B._forget_class_instance_reference_for_testing()
+        a = A.get_instance()
+        B._forget_class_instance_reference_for_testing()
+        b = B.get_instance()
         assert b.__class__.__name__ == 'B'
 
-    def test_forgetAllSingletons(self):
+    def test_forget_all_singletons(self):
         # Should work if there are no singletons
-        forgetAllSingletons()
+        forget_all_singletons()
 
         class A(Singleton):
             ciInitCount = 0
@@ -171,14 +169,14 @@ class singletonmixin_Public_TestCase(unittest.TestCase):
                 super(A, self).__init__()
                 A.ciInitCount += 1
 
-        A.getInstance()
+        A.get_instance()
         self.assertEqual(A.ciInitCount, 1)
 
-        A.getInstance()
+        A.get_instance()
         self.assertEqual(A.ciInitCount, 1)
 
-        forgetAllSingletons()
-        A.getInstance()
+        forget_all_singletons()
+        A.get_instance()
         self.assertEqual(A.ciInitCount, 2)
 
     def test_threadedCreation(self):
@@ -199,7 +197,7 @@ class singletonmixin_Public_TestCase(unittest.TestCase):
                     fSleepTime =  self._fTargetTime - time.time()
                     if fSleepTime > 0:
                         time.sleep(fSleepTime)
-                    Test_Singleton.getInstance()
+                    Test_Singleton.get_instance()
                 except Exception, e:
                     self._eException = e
 
@@ -229,35 +227,35 @@ class singletonmixin_Public_TestCase(unittest.TestCase):
             #def __init__(self):
             #    super(A, self).__init__()
 
-        A.getInstance() #Make sure no exception is raised
+        A.get_instance() #Make sure no exception is raised
 
     def testMultipleGetInstancesWithArgs(self):
 
         class A(Singleton):
 
-            ignoreSubsequent = True
+            ignore_subsequent = True
 
             def __init__(self, a, b=1):
                 pass
 
-        a1 = A.getInstance(1)
-        a2 = A.getInstance(2) # ignores the second call because of ignoreSubsequent
+        a1 = A.get_instance(1)
+        a2 = A.get_instance(2) # ignores the second call because of ignoreSubsequent
 
         class B(Singleton):
 
             def __init__(self, a, b=1):
                 pass
 
-        b1 = B.getInstance(1)
-        self.assertRaises(SingletonException, B.getInstance, 2) # No ignoreSubsequent included
+        b1 = B.get_instance(1)
+        self.assertRaises(SingletonException, B.get_instance, 2) # No ignoreSubsequent included
 
         class C(Singleton):
 
             def __init__(self, a=1):
                 pass
 
-        c1 = C.getInstance(a=1)
-        self.assertRaises(SingletonException, C.getInstance, a=2) # No ignoreSubsequent included
+        c1 = C.get_instance(a=1)
+        self.assertRaises(SingletonException, C.get_instance, a=2) # No ignoreSubsequent included
 
     def testInheritance(self):
         """
@@ -282,9 +280,9 @@ class singletonmixin_Public_TestCase(unittest.TestCase):
             def setY(self, y):
                 self.y = y
 
-        a = A.getInstance()
+        a = A.get_instance()
         a.setX(5)
-        b = B.getInstance()
+        b = B.get_instance()
         b.setX(5)
         b.setY(50)
         self.assertEqual((a.x, b.x, b.y), (5, -5, 50))
