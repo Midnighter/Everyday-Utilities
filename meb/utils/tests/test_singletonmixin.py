@@ -27,7 +27,7 @@ from ..singletonmixin import SingletonException
 from ..singletonmixin import forget_all_singletons
 
 
-class singletonmixin_Public_TestCase(unittest.TestCase):
+class SingletonMixinPublicTestCase(unittest.TestCase):
     def testReturnsSameObject(self):
         """
         Demonstrates normal use -- just call get_instance and it returns a singleton instance

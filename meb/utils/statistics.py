@@ -41,8 +41,10 @@ def probability_bincount(obs, drop=True):
     -------
     A frequency distribution that is normalised to unity.
     """
-    if not obs:
-        return []
+    obs = numpy.asarray(obs, dtype="int32")
+    obs = numpy.ravel(obs)
+    if obs.size == 0:
+        return list()
     total = float(len(obs))
     freq = numpy.bincount(obs)
     points = [(k, val / total) for (k, val) in enumerate(freq) if val > 0]
