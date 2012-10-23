@@ -19,6 +19,7 @@ Statistics Helpers
 
 
 import numpy
+import numpy.ma as nma
 import scipy
 import scipy.stats
 
@@ -41,12 +42,13 @@ def probability_bincount(obs, drop=True):
     -------
     A frequency distribution that is normalised to unity.
     """
-    obs = numpy.asarray(obs, dtype="int32")
+    obs = nma.asanyarray(obs, dtype="int32")
+    nma.masked_invalid(obs, copy=False)
     obs = numpy.ravel(obs)
     if obs.size == 0:
         return list()
     total = float(len(obs))
-    freq = numpy.bincount(obs)
+    freq = numpy.bincount(obs[~obs.mask])
     points = [(k, val / total) for (k, val) in enumerate(freq) if val > 0]
     return points
 
@@ -83,7 +85,8 @@ def frequency_distribution(obs, num_bins=30, binwidth=None, limits=None,
     the frequency of an event is measured, and the second entry is the frequency
     itself.
     """
-    obs = numpy.asarray(obs)
+    obs = nma.asanyarray(obs)
+    nma.masked_invalid(obs, copy=False)
     obs = numpy.ravel(obs)
     if obs.size == 0:
         return list()
@@ -102,7 +105,7 @@ def frequency_distribution(obs, num_bins=30, binwidth=None, limits=None,
     if limits is None:
         limits = (mn - offset, mx + offset)
     # extend the numeric range slightly beyond the data range
-    (freq, bins) = numpy.histogram(obs, bins=num_bins, range=limits,
+    (freq, bins) = numpy.histogram(obs[~obs.mask], bins=num_bins, range=limits,
             weights=weights)
     if drop:
         points = [(bins[k] + offset, freq[k]) for k in range(freq.size)\
@@ -163,7 +166,8 @@ def adaptive_distribution(obs, binwidth, limits=None, factor=2.0, k_max=21, righ
         Physical Review E 59 (3): 3312–3319.
 
     """
-    obs = numpy.asarray(obs)
+    obs = nma.asanyarray(obs)
+    nma.masked_invalid(obs, copy=False)
     obs = numpy.ravel(obs)
     if obs.size == 0:
         return list()
@@ -176,7 +180,7 @@ def adaptive_distribution(obs, binwidth, limits=None, factor=2.0, k_max=21, righ
     if limits is None:
         limits = (mn - offset, mx + offset)
     num_bins = numpy.floor((mx - mn) / binwidth)
-    freq = numpy.histogram(obs, num_bins, range=limits)[0]
+    freq = numpy.histogram(obs[~obs.mask], num_bins, range=limits)[0]
     total = float(freq.sum())
     print 0
     print binwidth
@@ -209,10 +213,13 @@ def compute_zscore(obs, random_stats):
     random_stats : iterable
         same observable in randomised versions
     """
-    if len(random_stats) == 0:
+    random_stats = nma.asanyarray(random_stats)
+    nma.masked_invalid(random_stats, copy=False)
+    random_stats = numpy.ravel(random_stats)
+    if random_stats.size == 0:
         return numpy.nan
-    mean = numpy.mean(random_stats)
-    std = numpy.std(random_stats)
+    mean = numpy.mean(random_stats.filled(0.0))
+    std = numpy.std(random_stats.filled(0.0))
     nominator = obs- mean
     if nominator == 0.0:
         return nominator
